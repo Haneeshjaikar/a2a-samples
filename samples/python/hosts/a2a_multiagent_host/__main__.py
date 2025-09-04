@@ -93,9 +93,24 @@ def main(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT):
     @api_app.post("/notifications")
     async def receive_notification(request: Request):
         data = await request.json()
-        if data.get('agentStatus') == 'completed':
-            print("[blue]Received notification for remote agent completion[/blue]")
-            agent_executor.output = data.get('output')
+        if  data.get('result', {}).get('status', {}).get('state') == 'completed':
+            print("[green]Received notification for remote agent completion[/green]")
+            agent_executor.output = data.get('result', {}).get('status', {}).get('message', {}).get('parts', [{}])[0].get('data', {}).get('output', {})
+        elif data.get('result', {}).get('status', {}).get('state') == 'input-required':
+
+            data_part = data.get('result', {}).get('status', {}).get('message', {}).get('parts', [{}])[0].get('data', {})
+            tool_name = data_part.get('tool', 'Unknown Tool')
+            
+            print(f"\n[bold]Status:[/bold] [yellow]Waiting For Human Input[/yellow]")
+            print(f"[bold]Tool:[/bold] {tool_name}")
+
+            tool_input = data_part.get('toolInput', {})
+            if tool_input:
+                print(f"[bold]Tool Input:[/bold] {tool_input}")
+            
+            print("-" * 50)
+            agent_executor.output = data.get('result', {}).get('status', {}).get('message', {})
+            
         return JSONResponse({"status": "ok", "message": "Notification received"})
 
     api_app.mount('/a2a/', a2a_app.build())

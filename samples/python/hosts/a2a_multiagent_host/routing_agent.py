@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import uuid
+import re
 
 from typing import Any
 
@@ -38,6 +39,24 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 load_dotenv()
+
+
+def is_valid_uuid(value: str) -> bool:
+    """Check if a string is a valid UUID."""
+    if not value:
+        return False
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+
+
+def is_valid_object_id(value: str) -> bool:
+    """Check if a string is a valid MongoDB ObjectId (24 hex characters)."""
+    if not value:
+        return False
+    return bool(re.match(r'^[0-9a-fA-F]{24}$', value))
 
 
 def convert_part(part: Part, tool_context: ToolContext):
@@ -91,7 +110,7 @@ class RoutingAgent:
         self.remote_agent_connections: dict[str, RemoteAgentConnections] = {}
         self.cards: dict[str, AgentCard] = {}
         self.agents: str = ''
-        self.discover_agents_url = os.getenv('DISCOVER_AGENTS_URL', 'http://localhost:8080/discover/agents')
+        self.discover_agents_url = os.getenv('DISCOVER_AGENTS_URL', 'https://dev.lionis.ai/dev2/api/v1/agents/discover/agents')
         print("INIT CALLED")
 
     async def _async_init_components(
@@ -99,9 +118,13 @@ class RoutingAgent:
     ) -> None:
         """Asynchronous part of initialization."""
         # Use a single httpx.AsyncClient for all card resolutions for efficiency
+
+        print(discover_agents_url)
         async with httpx.AsyncClient(timeout=30) as client:
             response = requests.get(discover_agents_url)
-            remote_agent_addresses = [e.get('wellknown_endpoint')[0].replace("/.well-known/agent-card.json", "") for e in response.json()]
+            # response.raise_for_status()
+            print(response.json())
+            remote_agent_addresses = [e.get('wellknown_endpoint')[0].replace("/.well-known/agent.json", "") for e in response.json()]
             for address in remote_agent_addresses:
                 card_resolver = A2ACardResolver(
                     client, address
@@ -231,17 +254,22 @@ class RoutingAgent:
         self,
         agent_name: str,
         task: str,
+        task_id: str,
+        context_id: str,
         tool_context: ToolContext,
     ):
         """Sends a task to remote seller agent.
 
         This will send a message to the remote agent named agent_name.
+        This can also resume an interrupted agent task waiting for user confirmation.
 
         Args:
             agent_name: The name of the agent to send the task to.
             task: The comprehensive conversation context summary
                 and goal to be achieved regarding user inquiry and purchase request.
                 if the remote agent is expecting a data part then send stringified json.
+            task_id: The task ID to resume a previous task. Send this only if the remote agent is waiting for user confirmation. Send None otherwise.
+            context_id: The context ID to group related tasks. Send this only if the remote agent is waiting for user confirmation. Send None otherwise.
             tool_context: The tool context this method runs in.
 
         Yields:
@@ -249,17 +277,22 @@ class RoutingAgent:
         """
         if agent_name not in self.remote_agent_connections:
             raise ValueError(f'Agent {agent_name} not found')
+        
+        # Validate task_id if provided
+        if task_id and not is_valid_uuid(task_id):
+            task_id = None
+        
+        # Validate context_id if provided
+        if context_id and not is_valid_object_id(context_id):
+            context_id = None
         state = tool_context.state
         state['active_agent'] = agent_name
         client = self.remote_agent_connections[agent_name]
 
         if not client:
             raise ValueError(f'Client not available for {agent_name}')
-        task_id = state['task_id'] if 'task_id' in state else None
 
-        if 'context_id' in state:
-            context_id = state['context_id']
-        else:
+        if not context_id:
             context_id = str(uuid.uuid4())
 
         message_id = ''
@@ -283,7 +316,8 @@ class RoutingAgent:
                 },
                 "configuration": {
                     "push_notification_config": {
-                        "url": "http://localhost:8083/notifications"
+                        # "url": "http://localhost:8083/notifications"
+                        "url": "https://fc1cbb12d3d8.ngrok-free.app/notifications"
                     }
                 }
             }
@@ -298,7 +332,8 @@ class RoutingAgent:
                 },
                 "configuration": {
                     "push_notification_config": {
-                        "url": "http://localhost:8083/notifications"
+                        # "url": "http://localhost:8083/notifications"
+                        "url": "https://fc1cbb12d3d8.ngrok-free.app/notifications"
                     }
                 }
             }
@@ -358,6 +393,7 @@ def _get_initialized_routing_agent_sync() -> Agent:
     async def _async_main() -> Agent:
         routing_agent_instance = await RoutingAgent.create(
             remote_agent_addresses=[],
+            # discover_agents_url='https://dev.lionis.ai/dev2/api/v1/agents/discover/agents',
             discover_agents_url='http://localhost:8080/discover/agents',
         )
         return routing_agent_instance.create_agent()

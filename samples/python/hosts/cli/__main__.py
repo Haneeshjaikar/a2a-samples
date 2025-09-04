@@ -46,7 +46,6 @@ def format_stream_event(event: dict) -> str:
         timestamp_obj = datetime.datetime.fromisoformat(timestamp)
         timestamp_str = timestamp_obj.strftime("%Y-%m-%d %H:%M:%S")
         status_str = f"[{timestamp_str}] - Status: {state.upper()}"
-        console.print(status_str)
         if final:
             if event.get('status', {}).get('message'):
                 data = event.get('status', {}).get('message', {}).get('parts', [])[0].get('data', {})
@@ -144,7 +143,7 @@ async def cli(
         context_id = session if session > 0 else uuid4().hex
 
         while continue_loop:
-            console.print('\n' + '='*20 + ' Starting a new task ' + '='*20, style='bold green')
+            console.print('\n' + '='*20 + ' Send a new message ' + '='*20, style='bold green')
             continue_loop, _, task_id = await completeTask(
                 client,
                 streaming,
@@ -176,7 +175,7 @@ async def completeTask(
     task_id,
     context_id,
 ):
-    console.print('\n[bold]Enter your message for the agent[/bold]', style='blue')
+    console.print('\n[bold]Enter your inputs for the agent[/bold]', style='blue')
     
     console.print('[dim](Type :q or quit to exit)[/dim]')
     prompt = click.prompt('> ', default='', show_default=False)
