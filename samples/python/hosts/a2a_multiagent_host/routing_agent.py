@@ -317,7 +317,7 @@ class RoutingAgent:
                 "configuration": {
                     "push_notification_config": {
                         # "url": "http://localhost:8083/notifications"
-                        "url": "https://fc1cbb12d3d8.ngrok-free.app/notifications"
+                        "url": "https://7738436528ae.ngrok-free.app/notifications"
                     }
                 }
             }
@@ -333,16 +333,16 @@ class RoutingAgent:
                 "configuration": {
                     "push_notification_config": {
                         # "url": "http://localhost:8083/notifications"
-                        "url": "https://fc1cbb12d3d8.ngrok-free.app/notifications"
+                        "url": "https://7738436528ae.ngrok-free.app/notifications"
                     }
                 }
             }
 
         if task_id:
-            payload['message']['taskId'] = task_id
+            payload['message']['task_id'] = task_id
 
         if context_id:
-            payload['message']['contextId'] = context_id
+            payload['message']['context_id'] = context_id
 
         message_request = SendMessageRequest(
             id=message_id, params=MessageSendParams.model_validate(payload)
@@ -393,8 +393,8 @@ def _get_initialized_routing_agent_sync() -> Agent:
     async def _async_main() -> Agent:
         routing_agent_instance = await RoutingAgent.create(
             remote_agent_addresses=[],
-            # discover_agents_url='https://dev.lionis.ai/dev2/api/v1/agents/discover/agents',
-            discover_agents_url='http://localhost:8080/discover/agents',
+            discover_agents_url='https://dev.lionis.ai/dev2/api/v1/agents/discover/agents',
+            # discover_agents_url='http://localhost:8080/discover/agents',
         )
         return routing_agent_instance.create_agent()
 
